@@ -38,6 +38,7 @@ def get_varieties_in_category(category_name):
     varieties = [row[0] for row in rows]
     return jsonify(varieties)
 
+@categories_bp.route("/add_category", methods=["POST"])
 def add_category():
     data = request.get_json()
 
@@ -51,7 +52,7 @@ def add_category():
     try:
         cur.execute(
             """
-            INSERT INTO categories (name)
+            INSERT INTO categories (category_name)
             VALUES (%s)
             RETURNING id
             """,
