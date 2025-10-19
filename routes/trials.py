@@ -35,6 +35,68 @@ def get_variety_trials(variety_name):
 
     return jsonify(trials)
 
+
+@trials_bp.route("/get_trial/<int:trial_id>", methods=["GET"])
+def get_trial(trial_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            """
+            SELECT 
+                id, start_date, end_date, category_name, variety, location, region,
+                plant_vigour, plant_earliness, plant_cold_tolerence, plant_heat_tolerence,
+                fruit_setting, fruit_shape, plant_notes,
+                fruit_quantity, fruit_uniformity, fruit_weight, fruit_firmness,
+                fruit_calyx_quality, fruit_blotchy_ripening, fruit_macro_cracking,
+                fruit_micro_cracking, fruit_notes, diseases
+            FROM trials
+            WHERE id = %s
+            """,
+            (trial_id,)
+        )
+
+        trial = cur.fetchone()
+
+        if not trial:
+            return jsonify({"error": "Trial not found"}), 404
+
+        # Convert to dictionary
+        trial_data = {
+            "id": trial[0],
+            "start_date": trial[1].isoformat() if trial[1] else None,
+            "end_date": trial[2].isoformat() if trial[2] else None,
+            "category_name": trial[3],
+            "variety": trial[4],
+            "location": trial[5],
+            "region": trial[6],
+            "plant_vigour": trial[7],
+            "plant_earliness": trial[8],
+            "plant_cold_tolerence": trial[9],
+            "plant_heat_tolerence": trial[10],
+            "fruit_setting": trial[11],
+            "fruit_shape": trial[12],
+            "plant_notes": trial[13],
+            "fruit_quantity": trial[14],
+            "fruit_uniformity": trial[15],
+            "fruit_weight": float(trial[16]) if trial[16] else None,
+            "fruit_firmness": trial[17],
+            "fruit_calyx_quality": trial[18],
+            "fruit_blotchy_ripening": trial[19],
+            "fruit_macro_cracking": trial[20],
+            "fruit_micro_cracking": trial[21],
+            "fruit_notes": trial[22],
+            "diseases": trial[23]
+        }
+
+        return jsonify(trial_data), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
 @trials_bp.route("/get_variety_average_trials/<string:variety_name>", methods=["GET"])
 def get_variety_average_trials(variety_name):
     conn = get_db_connection()
@@ -64,25 +126,32 @@ def get_variety_average_trials(variety_name):
     cur.close()
     conn.close()
 
-    # Map results into a JSON object
+    # Helper function to round and convert to float
+    def round_value(val):
+        if val is None:
+            return None
+        return round(float(val), 2)
+
+    # Map results into a JSON object with rounded values
     averages = {
-        "plant_vigour": row[0],
-        "plant_earliness": row[1],
-        "plant_cold_tolerence": row[2],
-        "plant_heat_tolerence": row[3],
-        "fruit_setting": row[4],
-        "fruit_quantity": row[5],
-        "fruit_uniformity": row[6],
-        "fruit_weight": row[7],
-        "fruit_firmness": row[8],
-        "fruit_calyx_quality": row[9],
-        "fruit_blotchy_ripening": row[10],
-        "fruit_macro_cracking": row[11],
-        "fruit_micro_cracking": row[12]
+        "plant_vigour": round_value(row[0]),
+        "plant_earliness": round_value(row[1]),
+        "plant_cold_tolerence": round_value(row[2]),
+        "plant_heat_tolerence": round_value(row[3]),
+        "fruit_setting": round_value(row[4]),
+        "fruit_quantity": round_value(row[5]),
+        "fruit_uniformity": round_value(row[6]),
+        "fruit_weight": round_value(row[7]),
+        "fruit_firmness": round_value(row[8]),
+        "fruit_calyx_quality": round_value(row[9]),
+        "fruit_blotchy_ripening": round_value(row[10]),
+        "fruit_macro_cracking": round_value(row[11]),
+        "fruit_micro_cracking": round_value(row[12])
     }
 
     return jsonify(averages)
-
+@trials_bp.route("/add_trial", methods=["POST"])
+@trials_bp.route("/add_trial", methods=["POST"])
 def add_trial():
     data = request.get_json()
 
@@ -96,72 +165,53 @@ def add_trial():
     cur = conn.cursor()
 
     try:
-        # Insert trial record
+        # Prepare diseases as JSONB if provided
+        diseases_json = None
+        if "diseases" in data:
+            import json
+            diseases_json = json.dumps(data["diseases"])
+
+        # Insert trial record with all fields
         cur.execute(
             """
-            INSERT INTO trials (start_date, end_date, catergory, variety, location, region)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO trials (
+                start_date, end_date, category_name, variety, location, region,
+                plant_vigour, plant_earliness, plant_cold_tolerence, plant_heat_tolerence,
+                fruit_setting, fruit_shape, plant_notes,
+                fruit_quantity, fruit_uniformity, fruit_weight, fruit_firmness, 
+                fruit_calyx_quality, fruit_blotchy_ripening, fruit_macro_cracking, 
+                fruit_micro_cracking, fruit_notes, diseases
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (data["start_date"], data["end_date"], data["category"], data["variety"], data["location"], data["region"]),
+            (
+                data["start_date"],
+                data["end_date"],
+                data["category"],  # This maps to category_name column
+                data["variety"],
+                data["location"],
+                data["region"],
+                data.get("plant_vigour"),
+                data.get("plant_earliness"),
+                data.get("plant_cold_tolerence"),
+                data.get("plant_heat_tolerence"),
+                data.get("fruit_setting"),
+                data.get("fruit_shape"),
+                data.get("plant_notes"),
+                data.get("fruit_quantity"),
+                data.get("fruit_uniformity"),
+                data.get("fruit_weight"),
+                data.get("fruit_firmness"),
+                data.get("fruit_calyx_quality"),
+                data.get("fruit_blotchy_ripening"),
+                data.get("fruit_macro_cracking"),
+                data.get("fruit_micro_cracking"),
+                data.get("fruit_notes"),
+                diseases_json
+            ),
         )
         trial_id = cur.fetchone()[0]
-
-        # Optional: insert plants data if provided
-        if "plants" in data:
-            plants = data["plants"]
-            cur.execute(
-                """
-                INSERT INTO plants (plant_vigour, plant_earliness, plant_cold_tolerence, 
-                                    plant_heat_tolerence, fruit_setting, fruit_shape, plant_notes, trial_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    plants.get("plant_vigour"),
-                    plants.get("plant_earliness"),
-                    plants.get("plant_cold_tolerence"),
-                    plants.get("plant_heat_tolerence"),
-                    plants.get("fruit_setting"),
-                    plants.get("fruit_shape"),
-                    plants.get("plant_notes"),
-                    trial_id,
-                ),
-            )
-
-        # Optional: insert fruits data if provided
-        if "fruits" in data:
-            fruits = data["fruits"]
-            cur.execute(
-                """
-                INSERT INTO fruits (fruit_quantity, fruit_uniformity, fruit_weight,
-                                    fruit_firmness, fruit_calyx_quality, fruit_blotchy_ripening,
-                                    fruit_macro_cracking, fruit_micro_cracking, fruit_notes, trial_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    fruits.get("fruit_quantity"),
-                    fruits.get("fruit_uniformity"),
-                    fruits.get("fruit_weight"),
-                    fruits.get("fruit_firmness"),
-                    fruits.get("fruit_calyx_quality"),
-                    fruits.get("fruit_blotchy_ripening"),
-                    fruits.get("fruit_macro_cracking"),
-                    fruits.get("fruit_micro_cracking"),
-                    fruits.get("fruit_notes"),
-                    trial_id,
-                ),
-            )
-
-        # Optional: insert diseases data if provided
-        if "diseases" in data:
-            for disease_note in data["diseases"]:
-                cur.execute(
-                    """
-                    INSERT INTO diseases (trial_id, notes)
-                    VALUES (%s, %s)
-                    """,
-                    (trial_id, disease_note),
-                )
 
         conn.commit()
         return jsonify({"success": True, "trial_id": trial_id}), 201
@@ -172,4 +222,3 @@ def add_trial():
     finally:
         cur.close()
         conn.close()
-

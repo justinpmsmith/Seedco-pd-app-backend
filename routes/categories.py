@@ -24,10 +24,11 @@ def get_varieties_in_category(category_name):
     cur = conn.cursor()
 
     query = """
-        SELECT t.variety
+        SELECT DISTINCT t.variety
         FROM trials t
         JOIN categories c ON t.category_name = c.category_name
         WHERE c.category_name = %s
+        ORDER BY t.variety
     """
     cur.execute(query, (category_name,))
     rows = cur.fetchall()
@@ -38,6 +39,8 @@ def get_varieties_in_category(category_name):
     varieties = [row[0] for row in rows]
     return jsonify(varieties)
 
+
+@categories_bp.route("/add_category", methods=["POST"])
 def add_category():
     data = request.get_json()
 
@@ -51,7 +54,7 @@ def add_category():
     try:
         cur.execute(
             """
-            INSERT INTO categories (name)
+            INSERT INTO categories (category_name)
             VALUES (%s)
             RETURNING id
             """,
