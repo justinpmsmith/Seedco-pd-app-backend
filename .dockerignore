@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+uploads/
+.env
+.git/
+.idea/
+misc/docker-compose.yml
